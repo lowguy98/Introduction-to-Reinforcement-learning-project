@@ -12,11 +12,11 @@ flag = 1 # Q-learning if flag==1,else SARSA
 
 size_board = 4
 
-def EMA(list, alpha=0.5):
+def EMA(list, alpha=0.8):
     new_list = np.zeros(len(list))
-    new_list[0] = (list[0] + list[1] + list[2]) / 3
+    new_list[0] = list[0]
     for i in range(1, len(list)):
-        new_list[i] = alpha * new_list[i] + (1 - alpha) * new_list[i - 1]
+        new_list[i] = alpha * new_list[i-1] + (1 - alpha) * list[i]
     return new_list
 
 def plot(R_save,N_moves_save):
@@ -92,12 +92,12 @@ def main():
 
         network = Network(n_input_layer,n_hidden_layer,n_output_layer) #Initialise network
         optimizer = torch.optim.Adam(network.parameters(),lr = eta)
-        loss_func = torch.nn.MSELoss(reduce=False)
+        loss_func = torch.nn.MSELoss(reduction='none')
 
         if n%50==0:
             
-            print(np.mean(R_save[:n]))
-            print(np.mean(N_moves_save[:n]))
+            print(np.mean(R_save[n-50:n]))
+            print(np.mean(N_moves_save[n-50:n]))
         
         
         while Done==0:
@@ -139,8 +139,10 @@ def main():
                 prediction[a_agent] = target
                 y = np.zeros(allowed_a.shape[0])
                 y[a_agent] = R
+                print('prediction',prediction)
+                print('y',y)
                 loss = loss_func(torch.autograd.Variable(torch.from_numpy(prediction)),torch.autograd.Variable(torch.from_numpy(y))).requires_grad_()
-
+                print('loss',loss)
                 optimizer.zero_grad()
                 loss.backward(torch.ones_like(loss))
                 optimizer.step()
@@ -164,8 +166,10 @@ def main():
                     prediction[a_agent] = target
                     y = np.zeros(allowed_a.shape[0])
                     y[a_agent] = R
+                    #print('prediction',prediction)
+                    #print('y',y)
                     loss = loss_func(torch.autograd.Variable(torch.from_numpy(prediction)),torch.autograd.Variable(torch.from_numpy(y))).requires_grad_()
-                    
+                    #print('loss',loss)
                     optimizer.zero_grad()
                     loss.backward(torch.ones_like(loss))
                     optimizer.step()
@@ -189,7 +193,7 @@ def main():
                     y = np.zeros(allowed_a.shape[0])
                     y[a_agent] = R
                     loss = loss_func(torch.autograd.Variable(torch.from_numpy(prediction)),torch.autograd.Variable(torch.from_numpy(y))).requires_grad_()
-
+                    print('loss',loss)
                     optimizer.zero_grad()
                     loss.backward(torch.ones_like(loss))
                     optimizer.step()
