@@ -29,7 +29,6 @@ class Network():
         return self.y,self.x1
 
     def back_prop(self,delta,eta,a_agent,x):
-        
                 
         delta_W2=eta*delta*self.x1
         delta_W1=eta*np.outer(x,delta*self.w2[:,a_agent]*(self.x1>0))                

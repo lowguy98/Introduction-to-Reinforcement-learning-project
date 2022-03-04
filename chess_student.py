@@ -20,6 +20,7 @@ def EMA(list, alpha=0.8):
     return new_list
 
 def plot(R_save,N_moves_save):
+    print(R_save.shape)
     R_save = EMA(R_save)
     N_moves_save = EMA(N_moves_save)
     x=range(R_save.shape[0])
@@ -63,9 +64,9 @@ def main():
     # Network Parameters
     epsilon_0 = 0.2   #epsilon for the e-greedy policy
     beta = 0.00005    #epsilon discount factor
-    gamma = 0.85      #SARSA Learning discount factor
+    gamma = 0.85      #Learning discount factor
     eta = 0.0035      #learning rate
-    N_episodes = 1000 #Number of games, each game ends when we have a checkmate or a draw
+    N_episodes = 1000  #Number of games, each game ends when we have a checkmate or a draw
 
     ###  Training Loop  ###
     
@@ -82,36 +83,33 @@ def main():
     for n in range(N_episodes):
         epsilon_f = epsilon_0 / (1 + beta * n)
         S,X,allowed_a=env.Initialise_game()
-        allowed_index = np.where(allowed_a==1)[0]     # INITIALISE GAME
+        allowed_index = np.where(allowed_a==1)[0]
         Done=0                                  # SET Done=0 AT THE BEGINNING
         i=1                                     # COUNTER FOR THE NUMBER OF ACTIONS (MOVES) IN AN EPISODE
 
+        # Define Network parameter
         n_input_layer = 3*S.shape[0]*S.shape[0]+10  # Number of neurons of the input layer. 
         n_hidden_layer = 200  # Number of neurons of the hidden layer
         n_output_layer = 8*(S.shape[0]-1)+8 # Number of neurons of the output layer.
 
         network = Network(n_input_layer,n_hidden_layer,n_output_layer) #Initialise network
         optimizer = torch.optim.Adam(network.parameters(),lr = eta)
+        #optimizer = torch.optim.SGD(network.parameters(), lr = 0.001, momentum = 0.9)
+
         loss_func = torch.nn.MSELoss(reduction='none')
 
-        if n%50==0:
-            
-            print(np.mean(R_save[n-50:n]))
-            print(np.mean(N_moves_save[n-50:n]))
+        if n%100==0:    
+            print(np.mean(R_save[n-100:n]))
+            print(np.mean(N_moves_save[n-100:n]))
         
         
         while Done==0:
 
-            # Computing Features
             X = env.Features()
-
-            # FILL THE CODE 
-            # Enter inside the Q_values function and fill it with your code.
-            # You need to compute the Q values as output of your neural
-            # network. You can change the input of the function by adding other
-            # data, but the input of the function is suggested. 
-            input = torch.autograd.Variable(torch.from_numpy(X)).float()
-            Q = network(input).detach().numpy()
+            input = torch.tensor(X,requires_grad=True).float()
+            output = network(input)
+            #print('before backward\n')
+            Q = np.copy(output.data.numpy())
             Qvalues=np.copy(Q[allowed_index])
             
             np.random.seed(i)
@@ -122,30 +120,20 @@ def main():
             allowed_index_next = np.where(allowed_a_next==1)[0] 
 
 
-            # Check for draw or checkmate
+            # Draw or checkmate
             if Done==1:
-                # King 2 has no freedom and it is checked
-                # Checkmate and collect reward
                 
-                """
-                FILL THE CODE
-                Update the parameters of your network by applying backpropagation and Q-learning. You need to use the 
-                rectified linear function as activation function (see supplementary materials). Exploit the Q value for 
-                the action made. You computed previously Q values in the Q_values function. Be careful: this is the last 
-                iteration of the episode, the agent gave checkmate.
-                """
-                target = Q[allowed_index[np.argmax(Qvalues)]]
-                prediction = np.zeros(allowed_a.shape[0])
-                prediction[a_agent] = target
-                y = np.zeros(allowed_a.shape[0])
-                y[a_agent] = R
-                print('prediction',prediction)
-                print('y',y)
-                loss = loss_func(torch.autograd.Variable(torch.from_numpy(prediction)),torch.autograd.Variable(torch.from_numpy(y))).requires_grad_()
-                print('loss',loss)
+                Qmax_index = allowed_index[np.argmax(Qvalues)]
+                target = torch.zeros_like(output)
+                target[a_agent] = R
+                loss_weight = torch.zeros_like(output)
+                loss_weight[a_agent] = 1
+                loss = loss_func(output,target)
+                #print('loss',loss)
                 optimizer.zero_grad()
-                loss.backward(torch.ones_like(loss))
+                loss.backward(loss_weight)
                 optimizer.step()
+                
                 #delta=R-Q[a_agent]
                 #network.back_prop(delta,eta,a_agent,X)
                 R_save[n]=np.copy(R)
@@ -157,43 +145,51 @@ def main():
             else:
                 if flag: 
                     # flag==1,Q-learning
-                    input_next = torch.autograd.Variable(torch.from_numpy(X_next)).float()
-                    Q_next =  network(input_next).detach().numpy()
+                    input_next = torch.tensor(X_next,requires_grad=True).float()
+                    output_next = network(input_next)
+                    Q_next =  np.copy(output_next.data.numpy())
                     Qvalues_next=np.copy(Q_next[allowed_index_next])
                     
-                    target = Q[a_agent]-gamma*Q_next[allowed_index_next[np.argmax(Qvalues_next)]]
-                    prediction = np.zeros(allowed_a_next.shape[0])
-                    prediction[a_agent] = target
-                    y = np.zeros(allowed_a.shape[0])
-                    y[a_agent] = R
-                    #print('prediction',prediction)
-                    #print('y',y)
-                    loss = loss_func(torch.autograd.Variable(torch.from_numpy(prediction)),torch.autograd.Variable(torch.from_numpy(y))).requires_grad_()
-                    #print('loss',loss)
+                    Qmax_index_next = allowed_index_next[np.argmax(Qvalues_next)]
+                    target = torch.zeros_like(output)
+                    target[a_agent] = R + gamma*Q_next[Qmax_index_next]
+                    loss_weight = torch.zeros_like(output_next)
+                    loss_weight[a_agent] = 1.
+                    loss_weight = loss_weight.float()
+                    loss = loss_func(output,target)
+                    '''
+                    print('prediction',target)
+                    print('output',output)
+                    print('loss',loss)
+                    '''
                     optimizer.zero_grad()
-                    loss.backward(torch.ones_like(loss))
+                    loss.backward(loss_weight)
                     optimizer.step()
+                    '''
+                    print('after backward\n')
+                    for name, param in network.named_parameters():
+                        print(name,'grad',np.where(param.grad!=0))
+                    '''
                     #delta=R+gamma*np.max(Qvalues_next)-Q[a_agent]
                     #network.back_prop(delta,eta,a_agent,X)
 
                     allowed_index = allowed_index_next
-                    R_save[n]=np.copy(R)
-                    N_moves_save[n]=np.copy(i)
+                    
 
                 else:
                     # flag==0,SARSA
-                    input_next = torch.autograd.Variable(torch.from_numpy(X_next)).float()
-                    Q_next =  network.forward(input_next).detach().numpy()
+                    input_next = torch.tensor(X_next,requires_grad=True).float()
+                    Q_next =  network.forward(input_next).data.numpy()
                     Qvalues_next=np.copy(Q_next[allowed_index_next])
                     a_agent_next = epsilon_greedy(epsilon_f,Qvalues_next,allowed_index_next)
                     
                     target = Q[a_agent]-gamma*Q_next[a_agent_next]
-                    prediction = np.zeros(allowed_a_next.shape[0])
-                    prediction[a_agent] = target
+                    target = np.zeros(allowed_a_next.shape[0])
+                    target[a_agent] = target
                     y = np.zeros(allowed_a.shape[0])
                     y[a_agent] = R
-                    loss = loss_func(torch.autograd.Variable(torch.from_numpy(prediction)),torch.autograd.Variable(torch.from_numpy(y))).requires_grad_()
-                    print('loss',loss)
+                    loss = loss_func(torch.tensor(target,requires_grad=True),torch.tensor(y,requires_grad=True)).requires_grad_()
+                    #print('loss',loss)
                     optimizer.zero_grad()
                     loss.backward(torch.ones_like(loss))
                     optimizer.step()
@@ -201,8 +197,6 @@ def main():
                     #network.back_prop(delta,eta,a_agent,X)
 
                     allowed_index = allowed_index_next
-                    R_save[n]=np.copy(R)
-                    N_moves_save[n]=np.copy(i)
             
 
             # YOUR CODE ENDS HERE

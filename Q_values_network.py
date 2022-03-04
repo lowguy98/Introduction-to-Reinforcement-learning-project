@@ -10,12 +10,16 @@ class Network(nn.Module):
         self.hidden1 = nn.Linear(n_input_layer,n_hidden_layer)
         self.predict = nn.Linear(n_hidden_layer,n_output_layer)
 
+    def initialize_weights(self):
+        for m in self.modules():
+            nn.init.normal_(m.weight.data, 0, 0.1)
+            m.bias.data.zero_()
 
     def forward(self,x):
-        a1 = self.hidden1(x)
-        x1 = F.relu(a1)
-        a2 =self.predict(x1)
-        out = F.relu(a2)
+        out = self.hidden1(x)
+        out = F.relu(out)
+        out =self.predict(out)
+        out = F.relu(out)
         
         return out
 
