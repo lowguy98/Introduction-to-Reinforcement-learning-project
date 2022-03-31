@@ -68,7 +68,7 @@ def main():
     # Parameters
     epsilon_0 = 0.1   #epsilon for the e-greedy policy
     beta = 0.00005    #epsilon discount factor
-    gamma = 0.99      #Learning discount factor
+    gamma = 0.95      #Learning discount factor
     eta = 0.001      #learning rate
     N_episodes = 4000  #Number of games, each game ends when we have a checkmate or a draw
 
