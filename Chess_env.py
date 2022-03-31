@@ -141,7 +141,7 @@ class Chess_Env:
            
             # King 2 has no freedom but it is not checked
             Done = 1        # The epsiode ends
-            R = 0.01      # Reward for draw
+            R = 0.     # Reward for draw
             allowed_a=[]    # Allowed_a set to nothing (end of the episode)
             X=[]            # Features set to nothing (end of the episode)
         

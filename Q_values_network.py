@@ -12,15 +12,13 @@ class Network(nn.Module):
 
     def initialize_weights(self):
         for m in self.modules():
-            nn.init.normal_(m.weight.data, 0, 0.1)
-            m.bias.data.zero_()
+            nn.init.kaiming_normal_(m.weight, mode='fan_in')
 
     def forward(self,x):
         out = self.hidden1(x)
         out = F.relu(out)
         out =self.predict(out)
-        out = F.relu(out)
-        
+        out = F.relu(out)       
         return out
 
          
